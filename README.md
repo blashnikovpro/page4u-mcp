@@ -58,7 +58,7 @@ Add to `.cursor/mcp.json`:
 |------|-------------|
 | `list_pages` | List all your landing pages |
 | `get_page` | Get detailed info about a page |
-| `deploy_page` | Deploy HTML as a live landing page |
+| `deploy_page` | Deploy HTML with optional assets (images, CSS, JS) as a live landing page |
 | `update_page` | Update page metadata (name, contact, colors) |
 | `delete_page` | Permanently delete a page |
 | `get_leads` | View leads from a page's contact form |
@@ -69,6 +69,7 @@ Add to `.cursor/mcp.json`:
 Once connected, you can ask your AI assistant:
 
 - *"Deploy this HTML as a landing page called my-bakery"*
+- *"Deploy this landing page with its images and CSS files"*
 - *"List all my pages"*
 - *"Show me leads for my-bakery"*
 - *"What are the analytics for my-bakery this month?"*

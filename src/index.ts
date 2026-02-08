@@ -2,6 +2,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import AdmZip from "adm-zip";
 
 const server = new McpServer({
   name: "page4u",
@@ -40,6 +41,7 @@ async function apiRequest<T>(
   const url = `${BASE_URL}/api/v1${path}`;
   const headers: Record<string, string> = {
     Authorization: `Bearer ${API_KEY}`,
+    "X-Page4U-Client": "mcp",
   };
 
   let fetchBody: string | FormData | undefined;
@@ -125,9 +127,24 @@ server.registerTool(
   "deploy_page",
   {
     description:
-      "Deploy an HTML string as a new landing page. Returns the live URL. The HTML should be a complete page with <!DOCTYPE html>.",
+      "Deploy a landing page with optional assets (images, CSS, JS). When assets are provided, they are bundled as a ZIP and uploaded together. The HTML can reference assets with relative paths (e.g. <img src=\"images/logo.png\">). Returns the live URL.",
     inputSchema: {
       html: z.string().describe("Complete HTML content for the page"),
+      assets: z
+        .array(
+          z.object({
+            filename: z
+              .string()
+              .describe(
+                "File path relative to index.html (e.g. 'images/logo.png', 'css/style.css')"
+              ),
+            content: z.string().describe("Base64-encoded file content"),
+          })
+        )
+        .optional()
+        .describe(
+          "Additional assets to include — images, CSS, JS, fonts, etc. Each asset has a filename (relative path) and base64-encoded content."
+        ),
       slug: z
         .string()
         .optional()
@@ -144,9 +161,30 @@ server.registerTool(
         .describe("WhatsApp number for contact button"),
     },
   },
-  async ({ html, slug, locale, whatsapp }) => {
+  async ({ html, assets, slug, locale, whatsapp }) => {
     const formData = new FormData();
-    formData.append("file", new Blob([html], { type: "text/html" }), "index.html");
+
+    if (assets && assets.length > 0) {
+      // Bundle HTML + assets into a ZIP
+      const zip = new AdmZip();
+      zip.addFile("index.html", Buffer.from(html, "utf-8"));
+      for (const asset of assets) {
+        zip.addFile(asset.filename, Buffer.from(asset.content, "base64"));
+      }
+      const zipBuffer = zip.toBuffer();
+      formData.append(
+        "file",
+        new Blob([new Uint8Array(zipBuffer)], { type: "application/zip" }),
+        "site.zip"
+      );
+    } else {
+      formData.append(
+        "file",
+        new Blob([html], { type: "text/html" }),
+        "index.html"
+      );
+    }
+
     if (slug) formData.append("slug", slug);
     if (locale) formData.append("locale", locale);
     if (whatsapp) formData.append("whatsapp", whatsapp);
@@ -160,6 +198,7 @@ server.registerTool(
 
     let result = `Page deployed!\n\nURL: ${data.url}\nSlug: ${data.slug}`;
     if (data.businessName) result += `\nName: ${data.businessName}`;
+    if (assets?.length) result += `\nAssets: ${assets.length} file(s) included`;
     if (data.warnings?.length) {
       result += `\n\nWarnings:\n${data.warnings.map((w) => `- ${w}`).join("\n")}`;
     }
