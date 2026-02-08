@@ -1,6 +1,6 @@
 {
   "name": "page4u-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for Page4U — let AI assistants deploy landing pages, manage leads, and view analytics",
   "type": "module",
   "bin": {
