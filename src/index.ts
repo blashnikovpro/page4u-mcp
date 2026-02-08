@@ -3,7 +3,25 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import AdmZip from "adm-zip";
+import fs from "node:fs";
+import nodePath from "node:path";
 
+const IGNORED = new Set([".DS_Store", "Thumbs.db", ".git", "node_modules"]);
+
+function zipDirectory(dirPath: string): Buffer {
+  const zip = new AdmZip();
+  function addDir(dir: string, zipPath: string) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (IGNORED.has(entry.name)) continue;
+      const full = nodePath.join(dir, entry.name);
+      const rel = zipPath ? `${zipPath}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) addDir(full, rel);
+      else if (entry.isFile()) zip.addLocalFile(full, zipPath || undefined);
+    }
+  }
+  addDir(dirPath, "");
+  return zip.toBuffer();
+}
 const server = new McpServer({
   name: "page4u",
   version: "1.0.0",
@@ -127,23 +145,19 @@ server.registerTool(
   "deploy_page",
   {
     description:
-      "Deploy a landing page with optional assets (images, CSS, JS). When assets are provided, they are bundled as a ZIP and uploaded together. The HTML can reference assets with relative paths (e.g. <img src=\"images/logo.png\">). Returns the live URL.",
+      "Deploy a landing page. Use EITHER 'directory' (path to a local folder containing index.html + images/CSS/JS) OR 'html' (raw HTML string). The directory approach is preferred — it zips and uploads the entire folder, just like the CLI.",
     inputSchema: {
-      html: z.string().describe("Complete HTML content for the page"),
-      assets: z
-        .array(
-          z.object({
-            filename: z
-              .string()
-              .describe(
-                "File path relative to index.html (e.g. 'images/logo.png', 'css/style.css')"
-              ),
-            content: z.string().describe("Base64-encoded file content"),
-          })
-        )
+      directory: z
+        .string()
         .optional()
         .describe(
-          "Additional assets to include — images, CSS, JS, fonts, etc. Each asset has a filename (relative path) and base64-encoded content."
+          "Absolute path to a local directory containing index.html and assets. The entire folder is zipped and uploaded. Preferred over html."
+        ),
+      html: z
+        .string()
+        .optional()
+        .describe(
+          "Complete HTML content as a string (for AI-generated pages without local files)."
         ),
       slug: z
         .string()
@@ -161,17 +175,26 @@ server.registerTool(
         .describe("WhatsApp number for contact button"),
     },
   },
-  async ({ html, assets, slug, locale, whatsapp }) => {
+  async ({ directory, html, slug, locale, whatsapp }) => {
+    if (!directory && !html) {
+      throw new Error("Provide either 'directory' (path to folder) or 'html' (HTML string).");
+    }
+
     const formData = new FormData();
 
-    if (assets && assets.length > 0) {
-      // Bundle HTML + assets into a ZIP
-      const zip = new AdmZip();
-      zip.addFile("index.html", Buffer.from(html, "utf-8"));
-      for (const asset of assets) {
-        zip.addFile(asset.filename, Buffer.from(asset.content, "base64"));
+    if (directory) {
+      // Resolve and validate directory
+      const resolved = nodePath.resolve(directory);
+      if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+        throw new Error(`Directory not found: ${resolved}`);
       }
-      const zipBuffer = zip.toBuffer();
+      const entries = fs.readdirSync(resolved);
+      if (!entries.some((e) => e.endsWith(".html"))) {
+        throw new Error(`No .html file found in ${resolved}`);
+      }
+
+      // Zip and upload — same as CLI
+      const zipBuffer = zipDirectory(resolved);
       formData.append(
         "file",
         new Blob([new Uint8Array(zipBuffer)], { type: "application/zip" }),
@@ -180,7 +203,7 @@ server.registerTool(
     } else {
       formData.append(
         "file",
-        new Blob([html], { type: "text/html" }),
+        new Blob([html!], { type: "text/html" }),
         "index.html"
       );
     }
@@ -198,7 +221,6 @@ server.registerTool(
 
     let result = `Page deployed!\n\nURL: ${data.url}\nSlug: ${data.slug}`;
     if (data.businessName) result += `\nName: ${data.businessName}`;
-    if (assets?.length) result += `\nAssets: ${assets.length} file(s) included`;
     if (data.warnings?.length) {
       result += `\n\nWarnings:\n${data.warnings.map((w) => `- ${w}`).join("\n")}`;
     }

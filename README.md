@@ -68,8 +68,8 @@ Add to `.cursor/mcp.json`:
 
 Once connected, you can ask your AI assistant:
 
+- *"Deploy the folder /path/to/my-site as a landing page called my-bakery"*
 - *"Deploy this HTML as a landing page called my-bakery"*
-- *"Deploy this landing page with its images and CSS files"*
 - *"List all my pages"*
 - *"Show me leads for my-bakery"*
 - *"What are the analytics for my-bakery this month?"*
