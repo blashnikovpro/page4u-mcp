@@ -1,0 +1,48 @@
+{
+  "name": "page4u-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Page4U — let AI assistants deploy landing pages, manage leads, and view analytics",
+  "type": "module",
+  "bin": {
+    "page4u-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "landing-page",
+    "deploy",
+    "leads",
+    "ai-tools",
+    "claude",
+    "cursor",
+    "page4u"
+  ],
+  "author": "Page4U",
+  "license": "MIT",
+  "homepage": "https://page4u.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/blashnikovpro/page4u-mcp.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.6.0"
+  }
+}
